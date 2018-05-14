@@ -1,0 +1,184 @@
+---
+title: "Sorensen"
+author: "Isolde Lane Shaw"
+date: "5th April 2018"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+# Overview
+
+Sorensen.R module re-implements a model created by Sorensen *et al.* (2008), in which numbers of female caribou (*Rangifer tarandus caribou*) in a population can be predicted based on the amount of anthropogenic and natural disturbance across their population's range.The module can be run on a neutral simulated landscape, or using Canadian ecoregion landscape data. 
+
+# Usage
+
+It is not meaningful to run this module on its own. The module uses key information from several other modules about a given ecodistrict, should the module be used to predict caribou populations for a specific area, as well as to run burn events and to determine the length of time since an area/raster map cell was disturbed by fire. 
+
+The following parameters are given: 
+
+**IND:** a constant that describes the percentage of the landscape that is within 250m of industrial activity such as roads, forestry, and oil wells and pipelines. In the landscapes studied by Sorensen *et al.* (2008) the average IND was found to be 54.2%, so this is the default value for this parameter. 
+
+**N0:** The number of female caribou in the population at time 0, or the start of the simulation. Environment Canada (2012) states that current evidence suggests that "more than 300 boreal caribou are needed for self-sustaining local populations." Farnell *et al.* (1994) found that in the two populatons they studied there was a larger number of cow caribou than bull caribou, with an average of only 42 bulls for every 100 cows. The default initial number female of caribou in the population is therefore given as 187. 
+
+**minHabitatAge:** The minimum amount of time that must pass following fire disturbance for an area to be suitable for use by caribou. This is due to the absence of suitable lichen in young forests. Sorensen *et al.* (2008) used the value of 50 years, giving our default for the parameter.  
+
+###Here the module is run using a neutral, simulated landscape:
+
+It is necessary to stipulate the size of the flammableMap and make nFlammable have an equal number of cells.  
+
+```{r neutral_usage, results = FALSE}
+library(SpaDES)
+#library(igraph) # Added to the module
+# library(SpaDES.core)
+# library(magrittr)
+# library(raster)
+# library(spatial.tools)
+# library(rgdal)
+
+moduleDir <- file.path("C:/Users/RALAS6/Documents/Modelling Forest Landscapes Class/Labs/scfmModules/")
+
+inputDir <- file.path("inputs") %>% reproducible::checkPath(create = TRUE)
+outputDir <- file.path(moduleDir, "outputs")
+cacheDir <- file.path(outputDir, "cache")
+times <- list(start = 0, end = 50) 
+
+parameters <- list(
+  Sorensen = list( N0 =  100,  #decide initial herd size
+                   minHabitatAge = 50), #decide the age a forest must be to provide caribou habitat
+  ageModule  = list(initialAge=75, 
+                   .plotInitialTime=0),
+  scfmSpread = list(.plotInitialTime=0,
+                   pOverRide=0.29))
+
+scfmPars <- list(pSpread=0.235,
+                  p0=0.115,
+                  naiveP0=0.15, 
+                  pIgnition=0.00001, 
+                  maxBurnCells=NA
+                  )
+
+modules <- list( "scfmIgnition", "scfmEscape", "scfmSpread", "ageModule", "mapBurns", "Sorensen")
+
+objects <- list(scfmPars = scfmPars,
+                nNbrs = 8,
+                flammableMap = raster(raster::extent(0,100,0,100),nrow=100, ncol=100, vals=0),
+                landscapeAttr = list(cellSize=6.25, nFlammable=100*100) #make the nFlamable the same dimensions as the flammableMap
+                )
+
+paths <- list(
+  cachePath = cacheDir,
+  modulePath = moduleDir,
+  inputPath = inputDir,
+  outputPath = outputDir
+)
+
+mySim <- simInit(times = times, 
+                 params = parameters, 
+                 modules = modules,
+                 objects = objects, 
+                 paths = paths
+                 )
+
+mySim<-spades(mySim)
+
+mySim$herdTable[]
+
+```
+
+```{r neutral_output, eval= TRUE, echo=FALSE}
+mySim$herdTable[]
+```
+
+
+
+###Here the module is run using landcover data from an ecodistrict:
+
+It is necessary to stipulate the preferred ecodistrict and provide the ecodistrict shapefile.
+
+```{r ecodistrict_usage, results = FALSE}
+
+#library(igraph) # added to the module
+library(SpaDES)
+#library(igraph) # Added to the module
+# library(SpaDES.core)
+# library(magrittr)
+# library(raster)
+# library(spatial.tools)
+# library(rgdal)
+
+moduleDir <- file.path("C:/Users/RALAS6/Documents/Modelling Forest Landscapes Class/Labs/scfmmodules/")
+
+inputDir <- file.path("inputs") %>% reproducible::checkPath(create = TRUE)
+outputDir <- file.path(moduleDir, "outputs")
+cacheDir <- file.path(outputDir, "cache")
+times <- list(start = 0, end = 50) 
+
+#dsn <- file.path(inputDir, "Ecodistricts")
+  shape <- readOGR(dsn = 'C:/Users/RALAS6/Documents/Modelling Forest Landscapes Class/Labs/inputs/Ecodistricts', layer = "ecodistricts")
+  studyArea<-shape[shape$ECODISTRIC==262,] #decide what ecodistrict to look at 
+  
+parameters <- list(
+  Sorensen = list( N0 =  187,  #decide initial herd size
+                   minHabitatAge = 50), #decide the age a forest must be to provide caribou habitat
+  scfmSpread = list(pOverRide=0.28))
+
+modules <- list("scfmCrop", "scfmLandcoverInit", "scfmRegime", "scfmDriver","scfmIgnition", "scfmEscape", "scfmSpread", "ageModule", "mapBurns", "Sorensen")
+
+objects <- list(studyArea=studyArea,
+                nNbrs=8)
+paths <- list(
+  cachePath = cacheDir,
+  modulePath = moduleDir,
+  inputPath = inputDir,
+  outputPath = outputDir
+)
+
+mySim <- simInit(times = times, 
+                 params = parameters, 
+                 modules = modules,
+                 objects = objects, 
+                 paths = paths
+                 )
+
+mySim<-spades(mySim)
+
+mySim$herdTable[]
+
+```
+
+```{r ecodistrict_output, eval= TRUE, echo=FALSE}
+mySim$herdTable[]
+```
+
+# Events
+
+**Init:** Initiates the Sorensen Module. It also creates the herdTable dataframe, and adds the first row of data, giving the initial caribou herd size. 
+
+**SorensenE:** Calculates BURN, the percentage of the forest that is younger than a given age (parameter minHabitatAge), and that is not an unburnable feature, such as a lake. Lambda (Lt), the rate of population increase, is then calculated using the following formula:
+
+    Lt = Lt <- 0.03 - (0.0032 * IND) - (0.0030 * BURN)
+    
+Using Lt the new caribou population size is calculated (Nt). The values for Lt and Nt are recorded in herdTable.  
+
+# Data dependencies
+
+## Input data
+
+The module requires an ageMap (a raster which details the age of the forest) a flammableMap (a map which is exposed to a burn regime) and landscapeAttr, (which provides details which of the landscape cells are covered by lakes, rather than forest).
+
+## Output data
+
+The Sorensen module produces the herdTable dataframe, which documents the caribou population growth, and resulting herd size (breeding females only) over the simulated time steps (years). The module also produces Nt (herd size) as an output.
+
+# Links to other modules
+
+The Sorensen module links to the modules "scfmCrop", "scfmLandcoverInit", "scfmRegime" and  "scfmDriver" if it is modelling a specific ecodistrict, as well as "scfmIgnition", "scfmEscape", "scfmSpread", "ageModule" and "mapBurns". 
+
+# References
+
+Environment Canada. 2012. Recovery Strategy for the Woodland Caribou (*Rangifer tarandus caribou), Boreal population, in Canada. Species at Risk Act Recovery Strategy Series. Environment Canada, Ottawa. xi + 138pp.
+
+Farnell, R., Barichello, N., Eglil, K., and Kuzyk, G. 1994. Population ecology of two woodland caribou herds in the southern Yukon. The Sixth North American Caribou Workshop, Prince George, British Columbia, Canada, 1-4 March, 1994.
+
+Sorensen, T., McLoughlin, P., Hervieux, D., Dzus, E., Nolan, J., Wynes, B., Boutin, S. 2007. Determining Sustainable Levels of Cumulative Effects of Boreal Caribou. Journal of Wildlife Management 72(4):900-905.

@@ -1,0 +1,90 @@
+---
+title: "stateVars"
+author: "Module Author"
+date: "07 April 2016"
+output: pdf_document
+---
+
+# Overview
+
+The module creates and maintains a cummulative disturbance map. It tracks recent fires using annual data provided by scfmSpread, and harvest.
+
+It marks burns with
+
+
+
+some state variables associated with the forest growth and harvesting modules.
+
+
+# Usage
+
+```{r module_usage}
+
+library(SpaDES)
+library(magrittr)
+library(raster)
+try(rm(mySim))
+inputDir <- file.path(tempdir(), "inputs") %>% checkPath(create = TRUE)
+outputDir <- file.path(tempdir(), "outputs")
+times <- list(start = 0, end = 2)
+parameters <- list(loadYieldTables=list(yieldTableMaxAge=180))
+modules <- list("stateVars")
+ageMap <- raster(raster::extent(0,49,0,49),nrow=50, ncol=50, vals=as.integer(runif(50*50)*150))
+disturbanceMap <- raster(raster::extent(0,49,0,49),nrow=50, ncol=50,
+                        vals=sample(c(0,1,2), replace=TRUE, size=50*50, prob=c(0.8,0.1,0.1)))
+objects <- list(disturbanceMap=disturbanceMap,ageMap=ageMap)
+paths <- list(
+  cachePath = file.path(outputDir, "cache"),
+  modulePath = file.path("scfmModules"),
+  inputPath = inputDir,
+  outputPath = outputDir
+)
+
+mySim <- simInit(times = times, params = parameters, modules = modules, paths = paths, objects=objects)
+
+if (exists("mySim")){
+  tmp <-spades(mySim)
+}
+
+```
+
+# Events
+
+## __init__ 
+
+Create __disturbanceMap__ and __heightMap__ from __dusturbanceMap__ template. Initialise to 0 by by raster multiplication to preserve NAs.  
+
+Initialise __heightMap__ from __ageMap__ using internal function __heightFromAge__
+
+
+## __update__
+
+Cells recently disturbbed are marked in RasterLater __harvestStateMap__ with the value of parameter __curPersistanceTime__. This counter is decrmented every update event harvested. Cells where this counter is $>0$ are not eligible for harvest, is the idea. This simluates "greenup" block adjacency constraints.
+
+The __heightMap__ is reclaculated based on __ageMap__
+
+
+# Data dependencies
+
+## Input data
+
+1. __disturbanceMap__ indicates the cells where a fire or a harvesting action has taken place since the last __update__ event.
+
+2. __ageMap__ time since last disturbance, or patch "age". 
+
+3. __harvestStateMap__ tracks greenup periods and such
+
+Both maps may contain NAs due to Masking or the presence of waterbodies.
+
+## Output data
+
+1. __harvestStateMap__ is in effect a timer applied to harvested cells. New disturbances are identified in __disturbanceMap__. 
+
+2. __heightMap__ a dumb height age relation is coded to illustrate how this sort of thing is done. The would more properly go in a stand dynamics module.
+
+
+# Links to other modules
+
+This is component of the experimental harvesting simulation system described in __Harvesting.Rmd__
+
+

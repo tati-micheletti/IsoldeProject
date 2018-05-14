@@ -1,0 +1,102 @@
+ge---
+title: "scfmSpread"
+author: "Steve Cumming"
+date: "28 February 2018"
+output: pdf_document
+---
+
+
+# Overview
+
+Model the spread of fires from their cells of origin (or after an initial spead event), all on the template RasterLayer __flammableMap__.
+
+Spread probabilities are taken from an element of object __scfmPars__ if this exists in the environment, otherwise from module paramater __pSpread__. The latter option is to facilitate stand alone use, or use outside of the module family __scfm__
+
+An additional paramater __pOverRide__ can be used to change the spread probability estimated in __sim$scfmPars__ without affecting the behaviour of the other component modules. This is useful if one suspects that the spread calibration procedure is not working correctly.
+
+Initial spread locations are taken from __sim\$spreadStateE__ if this exists, and from __sim\$ignitionLoci__ otherwise. The former would normally be inoput from module __scfmEscape__, the latter from __scfmIgnition__ or passed in as an object for testing, as here below. 
+
+This is part of triplet of modules __scfmIgnition__, __scfmEscape__ and __scfmSpread__ which implement the three stage stochastic landscape fire model described in Armstrong and Cumming (2003), and in Cumming, Demarchi and Walters (1998).
+
+
+
+
+# Usage
+
+```{r module_usage}
+library(SpaDES)
+library(magrittr)
+library(raster)
+inputDir <- file.path(tempdir(), "inputs") %>% checkPath(create = TRUE)
+outputDir <- file.path(tempdir(), "outputs")
+times <- list(start = 0, end = 10)
+parameters <- list(
+ scfmSpread = list(pSpread=0.24,           #should grow some nice big fires.
+                   .plotInitialTime=0      #test the Plot event
+                   ) 
+)
+modules <- list("scfmSpread")
+objects <- list( flammableMap = raster(raster::extent(0,49,0,49),nrow=50, ncol=50, vals=0),
+                 ignitionLoci = c(510, 1025, 1530, 2040)
+)
+paths <- list(
+  cachePath = file.path(outputDir, "cache"),
+  modulePath = file.path("."),
+  inputPath = inputDir,
+  outputPath = outputDir
+)
+
+mySim <- simInit(times = times, params = parameters, modules = modules,
+                 objects = objects, paths = paths)
+
+spades(mySim)
+```
+
+# Events
+
+This section to be completed. 
+
+## Init
+
+## BurnEmUp 
+
+uses __SpaDES.tools::spread__
+
+## sPlot
+
+## stats
+
+If paramater __.statsInitialTime__ is not __NA__, maintains a list of fire sizes in __sim$burnStats__ with an entry for each burn event, indexed by __as.character(time(sim))__. The event repeats at interval __returnInterval__.
+
+
+# Data dependencies
+
+## Input data
+
+Requires RasterLayer __flammableMap__ as a template.
+
+Initial state of burning provided by __spreadStateE__ produced by __scfmEscape__. If this is absent, __ignitionLoci__ is required. This could be produced by module __scfmIgnition__ or set by the user. 
+
+__scfmPars__ if present, provides a constant or RasterLayer of ignition probabilities. 
+
+The constant __nNbrs__ can be specified in the environment; if absent, the __.inputObjects__ event creates it with default value 8.
+
+
+## Output data
+
+__spreadState__ a data.table of burned cells and the fire events ids at the return from __SpaDES.tools::spread()__. 
+
+__burnMap__ raster layer is created showing the location of all burned cells at the end of the BurnEmUp event. (includes cells from __spreadStateE__ and __ignitionLoci__ if these objects are present in the environment. The upshot is that __burnMap__ is colour-coded by the process that burned each cell: 3, 2 and 1 for spread, escape and ignition, respectively.
+
+# Links to other modules
+
+This is part of the __scfm__ family of landscape fire models paramaterised from fire agency records.  linkages to other modules.
+
+It is preceded by __scfmIgnitions__ and __scfmEscape__, but can run with __scfmIgntions__ alone.
+
+__scfmDriver__ would normally be used to generate paramaters for these processes. 
+
+threeStageFire.Rmd illustrates the intended use of this and the two companion modules. 
+
+
+
