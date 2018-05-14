@@ -1,0 +1,116 @@
+---
+title: "vegMapToStrataMap"
+author: "Isolde Lane Shaw"
+date: "24th April 2018"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+# Overview
+
+This module converts the original given vegMap classifications into different system of classification, creating a 'strataMap". The module also records the Average Annual Cut, AAC, (in m3 per year) for each category used in the strataMap and creates a data frame 'strataMapStats' 
+
+# Usage
+
+It is not meaningful to use the module independently. 
+
+### Parameters
+
+**reclassificationTable:** This allows the user to specify which csv file to use for converting the original vegMap classes into the desired strata map classifications.
+
+```{r module_usage}
+library(SpaDES)
+
+#library(igraph) # Added to the module
+# library(data.table)
+# library(quickPlot) # loaded with SpaDES
+# library(RandomFields)
+# library(SpaDES.core) # loaded with SpaDES
+# library(magrittr)
+# library(raster)
+# library(spatial.tools)
+# library(rgdal)
+# library(ggplot2)
+
+try(rm(mySim))
+dev.useRSGD(FALSE)
+
+moduleDir <- file.path("C:/Users/RALAS6/Documents/Modelling Forest Landscapes Class/Labs/scfmModules")
+
+inputDir <- file.path("inputs") %>% reproducible::checkPath(create = TRUE)
+outputDir <- file.path(moduleDir, "outputs")
+cacheDir <- file.path(outputDir, "cache")
+times <- list(start = 0, end = 100) #give how long to run the module for
+
+#dsn <- file.path(inputDir, "Ecodistricts")
+  shape <- readOGR(dsn = 'C:/Users/RALAS6/Documents/Modelling Forest Landscapes Class/Labs/inputs/Ecodistricts', layer = "ecodistricts")
+  studyArea<-shape[shape$ECODISTRIC==262,] #decide what ecodistrict to look at 
+  
+parameters <- list(vegMapToStrataMap = list(reclassificationTable = "reclassificationTableAlberta.csv"))
+
+modules <- list("scfmCrop", "scfmLandcoverInit", "ageModule", "loadYieldTables", "Hanzlik", "vegMapToStrataMap")
+
+objects <- list(studyArea=studyArea)
+
+paths <- list(
+  cachePath = cacheDir,
+  modulePath = moduleDir,
+  inputPath = inputDir,
+  outputPath = outputDir
+)
+
+mySim <- simInit(times = times, 
+                 params = parameters, 
+                 modules = modules,
+                 objects = objects, 
+                 paths = paths
+                 )
+
+mySim <- spades(mySim)
+mySim$strataMapStats
+
+```
+
+# Events
+
+**init:** Initiates the vegMapToStrataMap module.
+
+**stratify:** 
+
+**statsInit:** Initiates the stats dataframe 'strataMapStats'. 
+
+**stats:** Adds a row of data to strataMapStats each year/time step.
+
+**plot:** Plots the strataMap following it's creation during the stratify event.
+
+## Plotting
+
+The strataMap is plotted at the initial time step. It is also possible to use the following code to produce a plot of the total AAC over time. 
+
+```{r AAC plot}
+
+Totals <- with(mySim$strataMapStats, rowSums(mySim$strataMapStats))
+AACGraph <- qplot( , Totals, main = NULL, xlab = "Years",
+  ylab = "AAC (m3 per year)")+ theme_minimal()
+AACGraph
+
+```
+
+
+# Data dependencies
+
+## Input data
+
+In order to create the strataMap, the module requires a vegMap. The module is designed to recieve this information from the "ageModule". In order to do the stats events and create the strataMapStats data frame annualCut data is required, which is produced by the Hanzlik module.
+
+The model also reqires a .csv file, giving the landscape cover classification convertion rules for the stratification event.
+
+## Output data
+
+The module produces a strataMap, and a strataMapStats data frame showing the AAC over time.
+
+# Links to other modules
+
+It is neccisary for the module to be run alongside the "ageModule", "loadYieldTables" and "Hanzlik" modules. It is also readly run alongside "scfmCrop" and "scfmLandcoverInit" in order to allow a specific real landscape to be used. It is anticipated that the module could also be successfully be paired with scfm fire modules, "harvest","stateVars" and "Sorensen". in order to examine the effects of forest harvesting and fire regimes on caribou populations. Other, similar applications should also be possible. 
+
