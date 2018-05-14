@@ -1,0 +1,86 @@
+---
+title: "scfmCrop"
+author: "Steve Cumming and Eliot McIntire"
+date: "03 April 2018"
+output: pdf_document
+---
+
+This module creates the initial vegetation and patch age maps for fire regime simulations. The basic user input is a shapefile __studyArea__. Age and vegetation maps __vegMapInit__ and __ageMapInit__ are loaded from the module's __data__ directory unless provided by the user. 
+
+__vegMapInit__ provides the template resolution and projection for the simulation. If additional layers than the age map are desired, they should be processed in the same manner as __ageMapInit__.
+
+There is no velidation that the __studyArea__ is contained within the extent of __vegMapInit__: this should be verified.
+
+
+## Input data
+
+__vegMapInit__ is the 250m resolution Land Cover Map of Canada 2005 (v1.2), which is classified multispectral imagery from the Modis sensor. 
+
+__ageMapInit__ is a synthetic 1km resolution product. 
+
+The references for these two data products are:
+
+Latifovic, R., Z-L, Zhu, J. Cihlar, C. Giri, I. Olthof, 2004. Land cover mapping of North and Central America –
+Global Land Cover 2000. Remote Sensing of Environment. 89:116-127. The on-line reference is __ftp:\ccrs.nrcan.gc.ca\AD\EMS\Landcover2005__.
+
+Pan, Y., Chen, J. M., Birdsey, R., McCullough, K., He, L., & Deng, F. (2011). Age structure and disturbance legacy of North American forests. Biogeosciences 8(3): 715-732. doi:10.5194/bg-8-715-2011.
+
+## Output data
+
+__vegMap__ cropped and masked to __studyArea__
+__ageMap__ reprojected to the projection and resolution and extent of __vegMap__, with the equivalent mask.
+__Mask__ derived from __vagMap__, values 1 or __NA__ depending on cell's being within the __studyArea__ or not. 
+
+The following code chunk loads and plots a specifed polygon from the Ecoregion shapefile, obtained onoine from NRCAN.
+
+
+```{r loadShp, echo=FALSE}
+library(rgdal)
+library(SpaDES)
+library(magrittr)
+dev.off()
+dev(4)
+newPlot()
+dataDir<-file.path("data", "Ecoregions")
+shape <- readOGR(dsn = dataDir, layer = "ecoregions")
+Plot(shape)
+studyArea<-shape[shape$ECOREGION==87,] #we have chosen Athabasca Plains in northern SK
+                                       #we happen to know the numeric code is 87 (easier to type)
+print(paste("class(studyArea) =",class(studyArea)))
+Plot(studyArea)
+```
+
+The following code chunk will create the cropped maps in simlist mySim. The two resultant maps are plotted. 
+
+```{r module_usage, message=FALSE}
+#Make sure to setwd to project directory
+try(rm(mySim))
+inputDir <- file.path(tempdir(), "inputs") %>% checkPath(create = TRUE)
+outputDir <- file.path(tempdir(), "outputs")
+times <- list(start = 0, end = 10)
+parameters <- list(
+ scfmCrop <- list(
+   .useCache = TRUE
+ )
+)
+
+modules <- list("scfmCrop")
+objects <- list(studyArea=studyArea)
+
+paths <- list(
+  cachePath = file.path(outputDir, "cache"),
+  modulePath = file.path("scfmModules"),
+  inputPath = inputDir,
+  outputPath = outputDir
+)
+
+dev.off()
+dev(4)
+newPlot()
+mySim <- simInit(times = times, params = parameters, modules = modules,
+                 objects = objects, paths = paths)
+Plot(mySim$vegMap, mySim$ageMap)
+tmp <- spades(mySim,debug=FALSE)
+```
+
+
