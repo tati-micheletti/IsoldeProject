@@ -1,0 +1,49 @@
+---
+title: "mapBurns"
+author: "stevec"
+date: "01 March 2018"
+output: pdf_document
+---
+
+# Overview
+
+This is an examplar interface module. Interface modules allow (groups of) modules to interact without having to know anything about each other...that is, without making any changes to module code or metadata.
+
+In this instance, we use outputs from __scfmSpread__ and related modules to determine which cells were burned recently, and use those indices to update entries in the state of module __ageModule__, specifically by setting elements of __ageMap__ to 0.
+
+The assumption is the two modules being interfaced are running on the same basemap. 
+
+# Usage
+
+It is not meaningful to run this module on its own.
+
+# Events
+
+##Init
+
+The module maintains no state information. The only action of the __init__ event is to schedule the first __mark__ event at __startTime__.
+
+##Mark
+
+Mark __ageMap__ by setting the burned cells to age 0. Burned cells are identified by one or more of the following
+
+__scfmIgnition::ignitionLoci__
+__scfmEscape::spreadStateE__
+__scfmSpread::spreadState__
+
+Any valid combination of one or more of the modules can be interaced to __ageModule__ by means of __mapBurns__.
+
+# Data dependencies
+
+## Input data
+
+See event __Mark__, above. 
+
+## Output data
+
+__ageMap__ is identified as model output so as to enforce a desired schedule, such that this module is called after the end of the __scfm__ sequence but before __ageModule__. If a different sequence is requried, the metadata must be altered.
+
+# Links to other modules
+
+Noen anticipated. 
+
