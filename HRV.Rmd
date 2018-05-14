@@ -1,0 +1,234 @@
+---
+title: "HRV.Rmd"
+author: "Steve Cumming"
+date: "April 25, 2018"
+output: pdf_document
+---
+TESTING
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##HRV estimation 
+
+We have been told in class that the way to estimate the HRV of some ecological indicator is by means of some independent simulation runs that generate the indicator. 
+
+Normally one would generate a large number of runs of length sufficient to remove the effect of intial conditions. Then the final states of each run can be regarded as independent samples of the data generating processes. Under that assumption, you can estimate the e.g. 95\% CIs of the indicator from the sample. 
+
+We are going to treat caribou population size as our indicator. For the assignment, students will have the option of comparing the HRV of herd population size under a natural fire regime in two regions, or comparing the HRV with the distribution of abudances that arise when harvesting is added to the fire regime.
+
+Our first step is to learn how to generate a sample of simulation runs. To do this, we will start with a simpler problem, and simply generate a distribution of AAC under a hypothetical fire regime on a randomly generated landscape. We will start with the __simList__ produced by the code chunk __ReadyForYou__ from the previous lab.
+
+
+#Add disturbanceMap and variable persistence Times
+
+```{r ReadyForYou}
+
+# Packages need to be specified in the module's metadata. They will be loaded. If you don't have a package, it will let you know and you should install it before running your simulation. I fixed some, but not all of them, so I will let it for you to fix the others.
+library(SpaDES)
+library(igraph)
+# library(SpaDES.core) # SpaDES.core, SpaDES.tools, quickPlot and reproducible are loaded with loading "SpaDES"
+# library(SpaDES.tools)
+# library(quickPlot)
+library(magrittr)
+library(raster)
+library(spatial.tools)
+library(rgdal)
+library(ggplot2)
+library(data.table)
+
+# rm(list=ls()) # you don't need to use this if you set your RStudio to clear your environment every time you restart R. It is just not good practice, mainly because if you share your code, it will erase other people's environment.   
+# try(rm(mySim)) # Again not needed if RStudio clears up the environment every time you restart it.
+# 
+dev.useRSGD(FALSE)
+try(dev.off(),silent=TRUE)
+
+# Try to always contain your folders into your project one. Creating a project in RStudio is REALLY helpful in this sense. I created it for you here. With a project, we can create folders more easily contained inside the project we are working on and set the right paths for SpaDES - remember my explanation about good coding practices? ;)
+
+# inputDir <- file.path("inputs") %>% checkPath(create = TRUE) #Replaces these for the ones below
+# outputDir <- file.path("outputs", "") #Replaces these for the ones below
+
+# Set the directories
+  workDirectory <- getwd()
+  
+  paths <- list(
+    cachePath = file.path(workDirectory, "cache"),
+    modulePath = file.path(workDirectory, "modules"),
+    inputPath = file.path(workDirectory, "inputs"),
+    outputPath = file.path(workDirectory, "outputs")
+  )
+  
+  setPaths(modulePath = paths$modulePath, inputPath = paths$inputPath, outputPath = paths$outputPath, cachePath = paths$cachePath)
+
+#clearCache(outputDir) don't do this. Just don't use cache if you don't wanna cache, but don't add a line in your code to erase it automatically. Others using your code might not want to erase their caches.
+
+times <- list(start = 0, end = 10)
+
+parameters <- list(
+  scfmCrop = list (.useCache = FALSE ),
+  scfmLandcoverInit = list(.useCache = FALSE,
+                           .plotInitialTime = NA),
+  vegMapToStrataMap = list(.plotInitialTime = NA,
+                           .plotInterval = NA),
+  scfmDriver = list(.useCache = FALSE),
+  scfmRegime = list(.useCache = FALSE),
+  scfmSpread = list(.plotInitialTime = NA,
+                    pOverRide = 0.24),
+  Hanzlik = list(replanInterval = 10,
+                 rationPeriodMultiplier = 2),
+  stateVars = list(persistTimes=c(20,10,10),
+                   .plotInitialTime = NA),
+  scfmDriver = list(returnInterval = 2),
+  
+  harvest = list(.saveInitialTime=times$end,
+                 .plotInitialTime = NA)
+)
+
+dsn <- file.path(paths$inputPath, "Ecodistricts") # Had to adapt to the new folder's paths Generally
+shape <- readOGR(dsn = dsn, layer = "ecodistricts")
+studyArea <- shape[shape$ECODISTRIC==262,] #here you can choose the ecodistrict you wish to study
+
+# Ideally, these objects should be created inside the modules, being downloaded from the internet. You can use the function prepInputs for that. Only parameters to be changed by the users should be on your global scripts (i.e. ecodistric number). Let me know if you need further help to do this, ok? :)
+
+modules <- list( "scfmCrop","scfmLandcoverInit","loadYieldTables",
+                "Hanzlik",
+                "scfmDriver", 
+                "scfmRegime", 
+                "ageModule", "scfmIgnition",
+                "scfmEscape", "scfmSpread","mapBurns","vegMapToStrataMap",
+                "harvest","stateVars", "Sorensen")
+
+objects <- list(
+                studyArea=studyArea
+                          )
+            
+# paths <- list( # Already set up
+#   cachePath = file.path(outputDir, "cache"),
+#   modulePath = file.path("scfmModules"),
+#   inputPath = inputDir,
+#   outputPath = outputDir
+# )
+
+```
+
+
+What we would like to do is run this simuation many times for hundreds of years. At the end of each run, we will obtain the harvest levels data.frame, and caculate the total for the last year of the simulation. The distrbution of this value sampled over the replicated simulations will be out estimate of the HRV of the AAC. 
+
+We are going to the use the function __SpaDES::experiment__ to do this for us. Generating replicated simulations using a single simList object without varying any parameters, objects or modules is the simplest application of this function. 
+
+You can access the documentation [here](https://www.rdocumentation.org/packages/SpaDES/versions/1.3.1/topics/experiment). 
+
+The experiment function has many paramaters. The following code chunk illustrates the bare minimum to replicate runs for a simList.
+
+## A simple first experiment
+
+```{r experiment_simple}
+mySim <- simInit(times = times, params = parameters, modules = modules,
+                 objects = objects, 
+                 paths = paths)
+experiment(sim=mySim, 
+           replicates=2, 
+           dirPrefix="exp1", 
+           saveExperiment= FALSE,
+           clearSimEnv= FALSE)
+#beware. To re-run this chunk, it seems necessary to recreate the simlist. Proably a consequence of clearSimEnv=TRUE #TM: You are frequently likely to re-run the simInit every time you change something in any of the modules, params, objects, etc.
+
+
+```
+
+This calls for two replicates, because we are in a hurry. 
+
+the saveExperiment option is TRUE, but we turn it FALSE because we do not need to save a representation of the experimental design; this would be useful for more complex experiments, so as to be able determine at some future time what exectly was done.
+
+dirPrefix creates a subdirectory of the simLists outputPath where the data from the replicates are stored Let's inspect...
+
+clearSimEnv is set to TRUE: this deletes all the data objects in the sim environment are cleared after each run. This will keep us from running out of memory. The cost is, we will be unable to look at the final maps each replicate. 
+
+
+### turn off plotting. 
+
+Another thing to notice as this experiment is runnint is that the plots are being drawn. This takes time. In real simulation experiments, all the plots should be disabled. This can be done by setting .plotInitialTime=NA in the paramater list for each module in the model.
+
+### Save events
+
+Now we have a reason to create a save event. This should be done in the modules that create the indicator that we want to track. You should use the scheduleEvent() priority argument to make sure the saving happens after the event in question takes place. See the example code in __harvest.R__ which writes a data.frame to the current output location, here at the end of each run.
+
+### Discussion: generating summary statistics
+
+Suppose we had generated many replicates. How would we create a histogram of the total harvest at the end of each run? This example code does just that for total volume harvested, as saved by harvest::save()
+
+
+```{r firstHRVstats}
+
+getVol <- function(fname){
+  dat<-read.csv(fname)
+  v<-apply(dat,1, sum)
+  res <-v[length(v)]
+  return(res)
+}
+
+f<-function(x){
+  fname<-file.path(outputPath(mySim),"exp1",x,"harvestStats.csv")
+  getVol(fname)
+}
+
+dvec <- dir(file.path(outputPath(mySim),"exp1"))
+sapply(dvec,f)
+```
+
+
+## Factorial experiments
+
+Experiment supports varying the inputs, objects, parameters, and the very modules used in a simulation.
+
+Here are generic examples of how params, modules, objects, and inputs should be structured.
+
+```{r, eval=FALSE}
+params = list(moduleName = list(paramName = list(val1, val2))).
+
+modules = list(c("module1","module2"), c("module1","module3"))
+
+objects = list(objName = list(object1=object1, object2=object2))
+
+inputs = list( data.frame(file = pathToFile1, loadTime = 0, objectName = "landscape", stringsAsFactors = FALSE), data.frame(file = pathToFile2, loadTime = 0, objectName = "landscape", stringsAsFactors = FALSE) )
+```
+
+
+Suppose we wanted to compare HRVs for caribou population size with fire only, and with fire + harvesting. Then
+we could vary the module set.
+
+
+```{r eval=FALSE}
+ # Example 2 - test alternative modules
+  # Example of changing modules, i.e., caribou with and without fires
+  # Create an experiment - here, 2 x 2 x 2 (2 levels of 2 params in fireSpread,
+  #    and 2 levels of 1 param in caribouMovement)
+  experimentModules <- list(
+    c("randomLandscapes", "fireSpread", "caribouMovement"), #list for lab6
+    c("randomLandscapes", "caribouMovement")) #list for lab 7
+  sims <- experiment(mySim, modules = experimentModules, replicates=N)
+  attr(sims, "experiment")$expVals # shows 2 alternative experiment levels
+```
+
+
+It's also possible to vary the region over which the simulation is run. In our implementations, this would involve
+varying the shapefile object by specifying "a named list of named objects".
+
+```{r eval=FALSE}
+
+dsn <- file.path(inputDir, "Ecodistricts")
+shape <- readOGR(dsn = dsn, layer = "ecodistricts")
+studyArea339 <- shape[shape$ECODISTRIC==339,]
+studyArea262 <- shape[shape$ECODISTRIC==262,]
+
+# Example 12 - pass in objects
+  experimentObj <- list(studyArea=list(ed339=studyArea339, ed262=studyArea262), foo=list(bar=bar,baz=baz, bax=bax))
+  # Pass in this list of landscape objects
+  sims <- experiment(mySim, objects = experimentObj, ...)
+
+objects=list()
+
+```
+
+Let's try this out with one of the fire modules. 
+
