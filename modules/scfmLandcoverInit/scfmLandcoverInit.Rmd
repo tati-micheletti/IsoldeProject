@@ -1,0 +1,77 @@
+---
+title: "scfmLandcoverInit"
+author: "Steve Cumming and Eliot McIntire"
+date: "09 July 2015"
+output: pdf_document
+---
+
+This modules does some initial processing of an input Vegetation map to support expectations of fire regime simulator.
+
+The paramater __nonFlammClasses__ is a vector of land cover classes to be considered non-burnable. The example code below illustrates the default values for the Canada Land Cover 2005 land cover product. It's usefule to be able to change this set, e.g. to explore the sensitivity of the fire model to varying abundances of lakes or other non-vegetated areas. 
+
+All other parameters are standard.
+
+```{r module_usage}
+library(SpaDES)
+library(raster)
+library(magrittr)
+
+
+inputDir <- file.path(tempdir(), "inputs") %>% checkPath(create = TRUE)
+outputDir <- file.path(tempdir(), "outputs")
+
+times <- list(start = 0, end = 10)
+parameters <- list(
+    scfmLandcoverInit= list(
+    .useCache = "init",
+    .plotInitialTime=0,
+    .plotInterval=NA,
+    nonFlammClasses = c( c(36, 37, 38, 39))  #default value shown
+  )
+)
+
+modules <- list("scfmLandcoverInit")
+mapPath <- file.path("scfmModules", data, "testMap.txt")
+#vegClassMap <- raster(file.path(baseDir,"lccSquares", "grid15_lcc05_ascii.txt")) %>% setMinMax
+vegClassMap <- raster(mapPath)
+objects <- list(vegClassMap=vegClassMap, nNbrs=8)
+
+paths <- list(
+    cachePath = file.path(outputDir, "cache"),
+    modulePath = file.path("scfmModules"),
+    inputPath = inputDir,
+    outputPath = outputDir
+)
+clearPlot(force=TRUE)
+mySim <- simInit(times = times, params = parameters, modules = modules,
+                 objects = objects, paths = paths)
+
+newSim<-spades(mySim, notOlderThan = Sys.time())
+```
+
+## Plotting
+
+the input and reclassified map are plotted if __.plotInitialTime__ is not __NA__;
+
+
+## Input data
+
+A raster __vegClassMap__ conforming to Canada Landcover 2005 legend (Latifovic et al. 2008);
+Possibly a shape-conformant raster __Mask__ whose non-NA elements indicate the valid cells within __vegClassMap__; other elements of __Mask__ must take a value of 1 or TRUE.
+
+## Output data
+
+Specifically, it produces:
+
+1. a reclassified raster __flammableMap__ were non-flammable cells are coded 1, otherwise 0.
+2. a list of landscape attributes __landscapeAttr__
+  + cellSize: cell size in ha (from input raster);
+  + nFlammable: number of flammable cells; ,
+  + burnyArea; product of the two preceding quantities; 
+  + nNbrs: frequency table of the count of flammable neighbours for flammable cells $\{0,1,\ldots,8\}$
+  
+## Anticipated linkages to other modules
+
+__flammableMap__ acts as template for __scfmIgnition__, __scfmEscape__ and __scfmSpread__. 
+
+__landscapeAttr__ provides constants for __scfmDriver__ calculations.

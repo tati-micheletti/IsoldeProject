@@ -1,0 +1,74 @@
+---
+title: "scfmIgnition"
+author: "Steve Cumming"
+date: "28 February 2018"
+output: pdf_document
+---
+
+# Overview
+
+Starts fires in random locations within template RasterLayer __flammableMap__.
+
+Ignition probilities are taken from an element of object __scfmPars__ if this exists in the environment, otherwise from
+module paramater __pIgnition__. The latter option is facilitate stand alone use, or use outside of module family __scfm__
+
+This is part of triplet of modules __scfmIgnition__, __scfmEscape__ and __scfmSpread__ which implement the three stage stochastic landscape fire model described in Armstrong and Cumming (2003), and in Cumming, Demarchi and Walters (1998).
+
+
+# Usage
+
+```{r module_usage}
+library(SpaDES)
+library(magrittr)
+try(rm(mySim))
+inputDir <- file.path(tempdir(), "inputs") %>% checkPath(create = TRUE)
+outputDir <- file.path(tempdir(), "outputs")
+times <- list(start = 0, end = 10)
+parameters <- list(
+ #scfmIgnition = list(pIgnition=0.0000001) #check that 0 ignitions triggers no edge case
+)
+modules <- list("scfmIgnition")
+objects <- list(flammableMap = raster(raster::extent(0,49,0,49),nrow=50, ncol=50, vals=0))
+paths <- list(
+  cachePath = file.path(outputDir, "cache"),
+  modulePath = file.path("."),  #assume run in RStudio for Module directory
+  inputPath = inputDir,
+  outputPath = outputDir
+)
+
+mySim <- simInit(times = times, params = parameters, modules = modules,
+                 objects = objects, paths = paths)
+
+mySim <- spades(mySim)
+```
+
+# Events
+
+## Init 
+
+Verify the template __flammableMap__ is present.
+
+Initialise __ignitionLoci <- numeric(0)__
+
+## Ignition
+
+Checks parameters and choses cells for ignition.
+Returns ignitionLoci which may be of length 0.
+
+# Data dependencies
+
+## Input data
+
+__flammableMap__ a RasterLayer serving as template. Also, may code non-flammable locations $!=0$ 
+
+__scfmPars__ if present, provides a constant or RasterLayer of ignition probabilities. 
+
+## Output data
+
+a vector of indices of ignitions locations within __flammableMap__
+
+# Links to other modules
+
+This is part of the __scfm__ family of landscape fire models paramaterised from fire agency records.  linkages to other modules.
+
+

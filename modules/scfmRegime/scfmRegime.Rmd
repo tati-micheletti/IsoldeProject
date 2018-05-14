@@ -1,0 +1,104 @@
+---
+title: "scfmRegime"
+author: "Steve Cumming"
+date: "03 August 2015"
+output: pdf_document
+---
+
+
+```{r setup, include=TRUE, echo=FALSE, messages=FALSE, results=}
+library(SpaDES)
+library(magrittr)
+library(raster)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This module estimates some fire regime parameters from empirical data.
+
+
+
+## Plotting
+
+Nothing.
+
+## Saving
+
+Nothing
+
+## Input data
+
+## Study area
+
+A shapefile is required
+
+## Landscape Attributes
+
+## Fire Points Database
+
+```{r}
+# Points
+#ftp://ftp.nofc.cfs.nrcan.gc.ca/pub/fire/nfdb/fire_pnt/current_version/NFDB_point.zip
+```
+
+## Output data
+
+A list names __scfmPars__ containing the following elements
+
+ignitionRate=rate,
+                       pEscape=pEscape,
+                       xBar=xBar,       # mean fire size ## SHOULD USE Expected Value?
+                       emfs=maxFireSiz
+
+## Anticipated linkages to other modules
+
+
+
+First, let's show how to load a shapefile
+
+```{r loadShp, echo=FALSE}
+library(rgdal)
+library(SpaDES)
+library(magrittr)
+dev.off()
+dev(4)
+newPlot()
+dataDir<-file.path("data", "Ecoregions")
+shape <- readOGR(dsn = dataDir, layer = "ecoregions")
+Plot(shape)
+studyArea<-shape[shape$ECOREGION==87,] #we have chosen Athabasca Plains in northern SK
+                                       #we happen to know the numeric code is 87 (easier to type)
+print(paste("class(studyArea) =",class(studyArea)))
+Plot(studyArea)
+```
+
+Now we can test the fire regime estimatorm and its GIS operations, and thr Caching of the database.
+
+```{r module_usage, message=FALSE}
+try(rm(mySim))
+inputDir <- file.path(tempdir(), "inputs") %>% checkPath(create = TRUE)
+outputDir <- file.path(tempdir(), "outputs")
+times <- list(start = 0, end = 10)
+parameters <- list(
+ scfmRegime <- list(
+   .useCache = TRUE,
+   fireCause = "L",
+   fireEpoch = c(1987,2016)
+ )
+)
+
+modules <- list("scfmRegime")
+objects <- list(studyArea=studyArea,landscapeAttr=list(cellSize=1,burnyArea=1e5))
+
+paths <- list(
+  cachePath = file.path(outputDir, "cache"),
+  modulePath = file.path("scfmModules"),
+  inputPath = inputDir,
+  outputPath = outputDir
+)
+
+mySim <- simInit(times = times, params = parameters, modules = modules,
+                 objects = objects, paths = paths)
+tmp <- spades(mySim,debug=FALSE)
+```
+
+#
