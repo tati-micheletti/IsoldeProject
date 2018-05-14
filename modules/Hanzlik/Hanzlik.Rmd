@@ -1,0 +1,74 @@
+---
+title: "Hanzlik"
+author: "Module Author"
+date: "24 March 2016"
+output: pdf_document
+---
+
+# Overview
+
+Apply the Hanzlik formula to an age class structure derived from __ageMap__,
+stratified by yield curves produced by __loadYieldTables__.
+
+# Usage
+
+```{r module_usage}
+library(SpaDES)
+library(magrittr)
+library(raster)
+inputDir <- file.path(tempdir(), "inputs") %>% checkPath(create = TRUE)
+outputDir <- file.path(tempdir(), "outputs")
+times <- list(start = 0, end = 10)
+parameters <- list(
+  Hanzlik = list(replanInterval = 10,
+                 rationPeriodMultiplier = 2)
+)
+modules <- list("loadYieldTables", "Hanzlik")
+
+ageMap <- raster(raster::extent(0,49,0,49),nrow=50, ncol=50, vals=as.integer(runif(50*50)*150))
+objects <- list(ageMap=ageMap,
+                #strataMap=raster(raster::extent(0,49,0,49),nrow=50, ncol=50, vals=rep(5,50*50)),
+                strataMap=randomPolygons(ageMap,numTypes=8),
+                landscapeAttr=list(cellSize=6.25)
+                )
+            
+paths <- list(
+  cachePath = file.path(outputDir, "cache"),
+  modulePath = file.path("scfmModules"),
+  inputPath = inputDir,
+  outputPath = outputDir
+)
+
+mySim <- simInit(times = times, params = parameters, modules = modules,
+                 objects = objects, paths = paths)
+
+if (exists("mySim")){
+  tmp <-spades(mySim)
+}
+
+```
+
+# Events
+
+## Init
+
+We pre-process each yield Table into a Hanzlik structure yeield tables into 
+
+## Plan
+
+# Data dependencies
+
+## Input data
+
+How to obtain input data, and a description of the data required by the module.
+If `sourceURL` is specified, `downloadData("Hanzlik", "path/to/modules/dir")` may be sufficient.
+
+## Output data
+
+Description of the module outputs.
+
+# Links to other modules
+
+Describe any anticipated linkages to other modules.
+
+
