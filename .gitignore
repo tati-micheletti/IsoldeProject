@@ -3,3 +3,9 @@
 .Rproj.user
 *.dbf
 *.tif
+*.shp
+*.dbf
+*.prj
+*.sbn
+*.sbx
+*.shx
