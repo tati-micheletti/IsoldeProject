@@ -109,13 +109,13 @@ Init <- function(sim) {
 
 
 .inputObjects <- function(sim){
-  if ( !("studyArea" %in% sim$.userSuppliedObjNames))
+  if (!suppliedElsewhere("studyArea",sim))
     stop("No studyArea provided")
   
-  if (!("firePointsDB" %in% sim$.userSuppliedObjNames)){
+  if (!suppliedElsewhere("firePointsDB", sim)){
      dsnPath <- file.path(dataPath(sim),"NFDB_point")
-     dsnPath <- normalizePath(dsnPath)
-     sim$firePointsDB <- Cache(readOGR, dsn=dsnPath, layer="NFDB_point_20171106", cacheRepo=cachePath(sim))
+#     dsnPath <- normalizePath(dsnPath) # Not needed
+     sim$firePointsDB <- Cache(readOGR, dsn=file.path(dsnPath, "NFDB_point_20171106.shp"), layer="NFDB_point_20171106", cacheRepo=cachePath(sim))
   }
   
   return(invisible(sim))

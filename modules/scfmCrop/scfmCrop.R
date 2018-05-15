@@ -104,8 +104,13 @@ Init <- function(sim) {
   
   # if (!("vegMapInit" %in% sim$.userSuppliedObjNames)){
   if (!suppliedElsewhere("vegMapInit", sim)){# The suppliedElsewhere() is the most appropriated to check existence of objects across modules.
-    fp <- file.path(dataPath(sim),"vegMapInit","LCC2005_V1_4a.tif")
-    sim$vegMapInit <- raster(fp)
+   if(file.exists(file.path(dataPath(sim),"vegMapInit","LCC2005_V1_4a.tif"))){
+     fp <- file.path(dataPath(sim),"vegMapInit","LCC2005_V1_4a.tif")
+     sim$vegMapInit <- raster(fp) 
+   } else {
+     sim$vegMapInit <- prepInputs(url = "ftp://ftp.ccrs.nrcan.gc.ca/ad/NLCCLandCover/LandcoverCanada2005_250m/LandCoverOfCanada2005_V1_4.zip", 
+                                      destinationPath = file.path(dataPath(sim), "vegMapInit"))
+   }
   }
   
   return(invisible(sim))

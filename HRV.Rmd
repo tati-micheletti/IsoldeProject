@@ -184,7 +184,7 @@ Experiment supports varying the inputs, objects, parameters, and the very module
 Here are generic examples of how params, modules, objects, and inputs should be structured.
 
 ```{r, eval=FALSE}
-params = list(moduleName = list(paramName = list(val1, val2))).
+params = list(moduleName = list(paramName = list(val1, val2)))
 
 modules = list(c("module1","module2"), c("module1","module3"))
 

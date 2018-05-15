@@ -108,9 +108,11 @@ Init = function(sim) {
 
 
 .inputObjects <- function(sim){
+  
   if (!("nNbrs" %in% names(objs(sim)))){
     warning("nNbrs set to 8 in scfmLandcoverInit..inputObjects")
     sim$nNbrs <- 8
   }
+  
   return(invisible(sim))
 }
